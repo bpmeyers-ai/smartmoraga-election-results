@@ -31,7 +31,7 @@ function draw(data){
  const rows=$('rows');rows.replaceChildren();
  function line(label,segments){const div=document.createElement('div');div.className='line';const strong=document.createElement('strong');strong.textContent=label+': ';div.append(strong);
  segments.forEach((seg,i)=>{if(i)div.append(document.createTextNode(' · '));const t=document.createElement('span');t.className='num';t.textContent=seg;div.append(t)});rows.append(div);}
- line('Town Council',[c[0].name.split(' ').at(-1)+' '+fmt(c[0]),c[1].name.split(' ').at(-1)+' '+fmt(c[1])]);
+ line('Town Council (2 seats)',c.map(candidate=>candidate.name.split(' ').at(-1)+' '+fmt(candidate)));
  line('Measure W',['YES '+fmt(m.YES),'NO '+fmt(m.NO)]);
  line('MOFD Division 3',[f[0].name.split(' ').at(-1)+' '+fmt(f[0]),f[1].name.split(' ').at(-1)+' '+fmt(f[1])]);
  const d=data.reported_at?new Date(data.reported_at):null;
