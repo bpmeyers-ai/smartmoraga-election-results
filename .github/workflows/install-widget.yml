@@ -38,7 +38,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs scripts tests .github/workflows/election-widget.yml .widget-bundle.b64
+          git add docs/.nojekyll docs/index.html docs/app.js docs/style.css docs/data.json scripts/update.py tests/test_update.py tests/fixture.xml .widget-bundle.b64
           git commit -m "Install tested SMARTMoraga election widget"
           git push
       - name: Configure Pages
