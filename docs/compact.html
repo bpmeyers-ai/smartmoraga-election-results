@@ -4,16 +4,16 @@
 <style>
 :root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#203447;background:#fff;font-synthesis:none}
 *{box-sizing:border-box}body{margin:0}.wrap{width:100%;padding:12px 14px;border:1px solid #d9e3e9;border-radius:9px;background:#fff}
-.heading{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:5px 14px;margin-bottom:8px}
+.heading{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:5px 14px;margin-bottom:10px}.heading-title{display:flex;flex-direction:column;gap:3px}.report-time{font-size:11px;color:#647687;line-height:1.4}
 h1{font-size:15px;margin:0;letter-spacing:-.01em}a{color:#145c82;text-decoration:underline;text-underline-offset:2px}
 .rows{display:grid;gap:6px}.line{font-size:13px;line-height:1.45}.line strong{font-weight:750}.dim{color:#536777}.num{font-variant-numeric:tabular-nums;white-space:nowrap}.footer{margin-top:9px;padding-top:7px;border-top:1px solid #ecf0f3;display:flex;gap:7px 12px;align-items:baseline;flex-wrap:wrap;font-size:11px;color:#647687}
 .footer a{font-weight:650}.error{font-size:12px;color:#b33232}.note{color:#4f6579;font-size:12px}
 @media(max-width:540px){.wrap{padding:10px 11px}.line{font-size:12.5px}h1{font-size:14px}}
 </style></head><body>
 <main class="wrap" id="compact">
-<div class="heading"><h1>Moraga Election Results</h1><a href="./" target="_blank" rel="noopener noreferrer" aria-label="Open full election results in a new tab">Full results ↗</a></div>
+<div class="heading"><div class="heading-title"><h1>Moraga Election Results</h1><div class="report-time" id="report-time">Unofficial county results · Loading report time…</div></div><a href="./" target="_blank" rel="noopener noreferrer" aria-label="Open full election results in a new tab">Full results ↗</a></div>
 <section class="rows" id="rows" aria-live="polite"><div class="line dim">Loading latest verified county results…</div></section>
-<div class="footer"><span id="report-time">Unofficial results</span><span id="warning"></span><a id="official" href="https://www.contracostavote.gov/election/november-3-2026-general-election/" target="_blank" rel="noopener noreferrer">Official county report ↗</a></div>
+<div class="footer"><span id="warning"></span><a id="official" href="https://www.contracostavote.gov/election/november-3-2026-general-election/" target="_blank" rel="noopener noreferrer">Official county report ↗</a></div>
 </main>
 <script>
 'use strict';
@@ -36,7 +36,7 @@ function draw(data){
  line('MOFD Division 3',[f[0].name.split(' ').at(-1)+' '+fmt(f[0]),f[1].name.split(' ').at(-1)+' '+fmt(f[1])]);
  const d=data.reported_at?new Date(data.reported_at):null;
  const stamp=d&&!isNaN(d)?new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(d):'time unverified';
- $('report-time').textContent=(data.certified?'Certified':'Unofficial')+' · County report '+stamp;
+ $('report-time').textContent=(data.certified?'Certified county results':'Unofficial county results')+' · Report '+stamp;
  $('warning').textContent=data.sample?'Sample data — not current':('Council second-place margin: '+nf.format(c[1].votes-c[2].votes)+' votes');
  const src=data.source_url||'';$('official').href=src.startsWith('https://')?src:'https://www.contracostavote.gov/election/november-3-2026-general-election/';
  resize();
