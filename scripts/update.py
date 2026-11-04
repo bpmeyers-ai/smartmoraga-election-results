@@ -187,23 +187,50 @@ def load_clarity():
         except Exception as e:failures.append(f'{url}: {e}')
     raise RuntimeError('No complete verified data from Clarity:\n'+'\n'.join(failures))
 
-PDF_FALLBACK='https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-53.pdf'
-COUNTY_ELECTION='https://www.contracostavote.gov/election/november-3-2026-general-election/'
+PDF_FALLBACK="https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-53.pdf"
+COUNTY_ELECTION="https://www.contracostavote.gov/election/november-3-2026-general-election/"
 
 def discover_pdf_urls():
-    # Read the county's *published* election page. Ignore commented-out
-    # future result links and stale files. This avoids guessing filenames.
     urls=[]
     try:
-        page=get(COUNTY_ELECTION,timeout=15,max_bytes=2_000_000,allow_html=True).decode('utf-8',errors='ignore')
-        page=re.sub(r'<!--.*?-->', '', page, flags=re.S)
-        for link in re.findall(r'href\s*=\s*["\x27]([^"\x27]+)["\x27]',page,re.I):
+        page=get(COUNTY_ELECTION,timeout=15,max_bytes=2_000_000,allow_html=True).decode("utf-8",errors="ignore")
+        page=re.sub(r"<!--.*?-->","",page,flags=re.S)
+        for link in re.findall(r'href="([^"]+)',page,re.I):
             href=html.unescape(link)
-            if re.search(r'ElectionSummaryReportRPT(?:-\d+)?\.pdf(?:[?#].*)?
+            if "ElectionSummaryReportRPT" in href and ".pdf" in href:
+                urls.append(urllib.parse.urljoin(COUNTY_ELECTION,href))
+    except Exception as e:
+        print("County results landing page unavailable:",e,file=sys.stderr)
+    urls.append(PDF_FALLBACK)
+    def file_number(url):
+        match=re.search(r"-(\d+)\.pdf",url,re.I)
+        return int(match.group(1)) if match else -1
+    return sorted({url for url in urls if url.startswith("https://")},key=file_number,reverse=True)[:12]
+
+def load_county_pdf():
+    import pdf_extract
+    failures=[]
+    for url in discover_pdf_urls():
+        try:
+            content=get(url,timeout=25,max_bytes=15_000_000)
+            results,reported_at=pdf_extract.parse_report(content)
+            data=assemble(results,url,reported_at=reported_at)
+            print("Verified official PDF:",url,reported_at,file=sys.stderr)
+            return data
+        except Exception as e:
+            failures.append(url+": "+str(e))
+    raise RuntimeError("No valid official county PDF: "+"; ".join(failures))
+
+def load_preferred():
+    try:return load_county_pdf()
+    except Exception as e:print("County PDF unavailable; trying Clarity:",e,file=sys.stderr)
+    return load_clarity()
+
+def validate_seed(path):
     doc=json.loads(Path(path).read_text())
-    if doc.get('election')!='2026-11-03':raise ValueError('Wrong election')
-    mapping={r['id']:{c['name']:c['votes'] for c in r['choices']} for r in doc['races']}
-    return assemble(mapping,doc['source_url'],doc.get('reported_at'),doc.get('version'))
+    if doc.get("election")!="2026-11-03":raise ValueError("Wrong election")
+    mapping={r["id"]:{c["name"]:c["votes"] for c in r["choices"]} for r in doc["races"]}
+    return assemble(mapping,doc["source_url"],doc.get("reported_at"),doc.get("version"))
 
 def main():
     ap=argparse.ArgumentParser()
