@@ -32,6 +32,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: One-time official source diagnostics
+        run: |
+          python -m pip install -q pypdf
+          python scripts/diagnose_sources.py
       - name: Test updater
         run: python -m unittest discover -s tests -v
       - name: Retrieve and validate current Clarity results
