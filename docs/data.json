@@ -2,10 +2,10 @@
   "election": "2026-11-03",
   "certified": false,
   "sample": false,
-  "reported_at": "2026-11-03T22:27:52-08:00",
+  "reported_at": "2026-11-03T23:43:50-08:00",
   "reported_at_text": null,
-  "fetched_at": "2026-11-04T06:49:00+00:00",
-  "source_url": "https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-56.pdf",
+  "fetched_at": "2026-11-04T08:13:06+00:00",
+  "source_url": "https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-57.pdf",
   "version": null,
   "races": [
     {
@@ -46,13 +46,13 @@
       "choices": [
         {
           "name": "YES",
-          "votes": 26530,
-          "percent": 70.07
+          "votes": 27003,
+          "percent": 69.99
         },
         {
           "name": "NO",
-          "votes": 11333,
-          "percent": 29.93
+          "votes": 11576,
+          "percent": 30.01
         }
       ]
     },
