@@ -1,0 +1,61 @@
+name: Update and publish SMARTMoraga election widget
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '*/15 * * * *'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: smartmoraga-election-pages
+  cancel-in-progress: false
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test updater
+        run: python -m unittest discover -s tests -v
+      - name: Retrieve and validate current Clarity results
+        run: |
+          if python scripts/update.py; then
+            echo 'Latest complete verified dataset retained or updated.'
+          else
+            echo '::warning::Source inaccessible or incomplete; retaining last verified snapshot.'
+          fi
+      - name: Commit verified results only when changed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/data.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update official election vote totals'
+            git push
+          fi
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Upload widget site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./docs
+      - name: Deploy widget site
+        id: deployment
+        uses: actions/deploy-pages@v4
