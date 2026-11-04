@@ -28,6 +28,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: true
+      - name: Check custom domain DNS and HTTPS
+        run: |
+          python3 - <<'PY'
+          import socket,ssl,datetime,urllib.request
+          host='results.smartmoraga.com'
+          try:
+              print('DNS addresses:',sorted({x[4][0] for x in socket.getaddrinfo(host,443)}),flush=True)
+              with socket.create_connection((host,443),timeout=8) as raw:
+                  with ssl.create_default_context().wrap_socket(raw,server_hostname=host) as sock:
+                      cert=sock.getpeercert()
+                      print('HTTPS certificate valid; expires:',cert.get('notAfter'),flush=True)
+              with urllib.request.urlopen('https://'+host+'/',timeout=10) as r:
+                  print('HTTPS response:',r.status,'final URL:',r.url,flush=True)
+          except Exception as e:
+              print('Custom domain not fully ready:',type(e).__name__,str(e),flush=True)
+          PY
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
