@@ -19,6 +19,11 @@ for url in URLS:
    pdf=PdfReader(io.BytesIO(body))
    print('PDF pages:',len(pdf.pages),'metadata:',str(pdf.metadata)[:500],flush=True)
    texts=[page.extract_text() or '' for page in pdf.pages]
+   for i in (0,11,12,13,17,18,26):
+    if i<len(texts):
+     print('== PDF PAGE',i+1,'==',flush=True)
+     print(texts[i][:11000],flush=True)
+     print('== END PDF PAGE',i+1,'==',flush=True)
    for needle in ['MORAGA', 'ACALANES', 'FIRE']:
     matches=[]
     for i,t in enumerate(texts):
