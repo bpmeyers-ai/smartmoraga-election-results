@@ -1,0 +1,14 @@
+{
+  "election": "2026-11-03",
+  "certified": false,
+  "sample": true,
+  "reported_at": "2026-11-03T20:05:10-08:00",
+  "fetched_at": null,
+  "source_url": "https://www.contracosta.ca.gov/DocumentCenter/View/93220/ElectionSummaryReportRPT",
+  "version": null,
+  "races": [
+    {"id":"council","title":"Moraga Town Council","subtitle":"Town of Moraga · Vote for up to 2","seats":2,"type":"candidate","precincts_text":"Election Day precincts reported in first county report: 0 of 10","choices":[{"name":"Steven Woehleke","votes":2753,"percent":35.07},{"name":"Kerry Hillis","votes":2417,"percent":30.79},{"name":"Alexis I. Mapel","votes":2093,"percent":26.67},{"name":"Bill Carman","votes":586,"percent":7.47}]},
+    {"id":"measure-w","title":"Measure W","subtitle":"Acalanes Union High School District · Parcel tax","seats":1,"type":"measure","choices":[{"name":"YES","votes":24652,"percent":70.09},{"name":"NO","votes":10518,"percent":29.91}]},
+    {"id":"mofd","title":"MOFD Division 3","subtitle":"Moraga-Orinda Fire District · Division 3","seats":1,"type":"candidate","precincts_text":"Election Day precincts reported in first county report: 0 of 20","choices":[{"name":"John Donnelly","votes":1237,"percent":62.95},{"name":"Steve Cohn","votes":728,"percent":37.05}]}
+  ]
+}

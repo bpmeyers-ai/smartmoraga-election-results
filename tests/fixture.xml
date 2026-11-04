@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ElectionResult>
+  <Contest text="Town of Moraga Member Town Council Vote For 2">
+    <Choice text="Steven Woehleke" totalVotes="2753"/><Choice text="Kerry Hillis" totalVotes="2417"/><Choice text="Alexis I. Mapel" totalVotes="2093"/><Choice text="Bill Carman" totalVotes="586"/>
+  </Contest>
+  <Contest text="Acalanes Union High School District Measure W">
+    <Choice text="YES" totalVotes="24652"/><Choice text="NO" totalVotes="10518"/>
+  </Contest>
+  <Contest text="Moraga-Orinda Fire District Board of Directors Division 3">
+    <Choice text="John Donnelly" totalVotes="1237"/><Choice text="Steve Cohn" totalVotes="728"/>
+  </Contest>
+</ElectionResult>
