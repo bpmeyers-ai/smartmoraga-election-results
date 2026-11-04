@@ -1,35 +1,41 @@
-# SMARTMoraga — 2026 Election Results Widget
+# SMARTMoraga — 2026 election results widget
 
-A lightweight, responsive election-results widget for the November 3, 2026 Contra Costa County election, designed to be embedded into SMARTMoraga's Wix Classic website.
-
-## Three selected contests
+A public, mobile-responsive widget tracking exactly three November 3, 2026 Contra Costa County contests:
 - Moraga Town Council (two seats)
-- Acalanes Union High School District Measure W (two-thirds YES threshold)
-- Moraga-Orinda Fire District, Division 3
+- Acalanes Union High School District Measure W (two-thirds YES requirement; $168 parcel tax)
+- Moraga-Orinda Fire Protection District, Division 3
 
-## Hosting
+## Public widget
 
-GitHub Pages, using **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-
-Public URL after a successful GitHub Pages deployment:
 https://bpmeyers-ai.github.io/smartmoraga-election-results/
 
-The widget loads the last validated data snapshot from `docs/data.json`. The initial numbers are a timestamped **sample/baseline** from the county's November 3, 2026 8:05:10 PM PST report; they must not be represented as a verified live feed.
+To embed in Wix Classic: **Add Elements → Embed Code → Embed a Site**. Paste the public widget URL. Adjust width and height in Wix's desktop and mobile editors.
 
-## Automated data updates
+## Official data and refresh
 
-`.github/workflows/election-widget.yml` runs every 15 minutes and on pushes. It uses the official Clarity Elections data-feed candidates, validates all three contests and candidate rosters, and publishes to Pages. Invalid or inaccessible feed responses never overwrite verified results. Read the GitHub Actions logs for the retrieval status.
+The GitHub Actions workflow runs approximately every 15 minutes. It reads the county's official [election results page](https://www.contracostavote.gov/election/november-3-2026-general-election/), discovers the actively published election-summary PDF (ignoring commented-out future report links), downloads it, extracts all three specified contests, validates every expected candidate/choice and its count against the reported percentages, and publishes only complete, non-older results to docs/data.json.
 
-The Clarity feed paths are not yet independently verified for this county election. Additional county PDF fallback support can be added after confirming live feed response formats.
+A known 9:20 PM election-night PDF is retained as a fallback. The Clarity Elections structured-data endpoint json/sum.json is also supported (including its Contests/C/CH/V schema), but Clarity currently returns empty HTTP 202 responses to GitHub Actions even though it loads in a browser. The county PDF is therefore the active source.
 
-## Embed in Wix Classic
+The front end refreshes its displayed data every five minutes while open. **County report as-of time** and **successful fetch time** are separately labeled. All results are unofficial until certified; the widget makes no winner or measure-passage calls.
 
-After the public Pages URL serves the widget successfully:
+## Safeguards
 
-1. In Wix Editor select **Add Elements → Embed Code → Embed a Site**.
-2. Paste the public URL above into the website address.
-3. Adjust the embed element width and height for desktop and mobile; check the actual rendered output before publication.
+- No partial roster, candidate mismatch, wrong contest, zero-vote record, inconsistent vote subtotals, or conflicting PDF percentages can overwrite valid results.
+- An older report cannot replace a newer published report.
+- Temporary source failures leave the last verified snapshot intact.
+- Tests run before every deployment.
+- Official source link and report timestamp are displayed.
 
-## Privacy and limitations
+## Development
 
-No voter-specific information is collected. The widget shows *unofficial* election results until county certification. A candidate lead is not an official race call.
+Core files: docs/index.html, docs/app.js, docs/style.css, docs/data.json, scripts/update.py, scripts/pdf_extract.py, tests/.
+
+Workflow: .github/workflows/election-widget.yml.
+
+Run tests locally with Python 3.12+ and pypdf installed:
+
+    pip install pypdf
+    python -m unittest discover -s tests -v
+
+The widget is independent of SMARTMoraga's existing Wix website and transcript-search application.
