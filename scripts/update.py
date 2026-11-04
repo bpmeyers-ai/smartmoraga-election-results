@@ -33,6 +33,9 @@ def get(url,timeout=18,max_bytes=8_000_000):
     with urllib.request.urlopen(req,timeout=timeout) as response:
         content=response.read(max_bytes+1)
         if len(content)>max_bytes: raise ValueError('Source too large')
+        sample=content[:1024].lower()
+        if b'javascript is disabled' in sample or (b'robot' in sample and b'javascript' in sample):
+            raise ValueError('HTML bot-verification page returned instead of election data')
         return content
 
 def compact(s):return re.sub(r'[^a-z0-9]+',' ',str(s or '').lower()).strip()
@@ -149,7 +152,7 @@ def discover_version():
 
 def load_clarity():
     version=discover_version()
-    urls=[(f'{BASE}/{version}/json/en/summary.json',parse_json),(f'{BASE}/{version}/json/details.json',parse_json),
+    urls=[(f'{BASE}/{version}/json/sum.json',parse_json),(f'{BASE}/{version}/json/en/summary.json',parse_json),(f'{BASE}/{version}/json/details.json',parse_json),
           (f'{BASE}/{version}/reports/detailxml.zip',extract_zip)]
     failures=[]
     for url,fn in urls:
