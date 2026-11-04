@@ -2,6 +2,8 @@
 """One-time, bounded public election source diagnostics for GitHub Actions."""
 import urllib.request, urllib.error, io
 URLS=[
+ "https://www.contracostavote.gov/election/november-3-2026-general-election/",
+ "https://www.contracostavote.gov/wp-json/wp/v2/media?search=ElectionSummaryReportRPT&per_page=20",
  "https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-53.pdf",
  "https://www.contracosta.ca.gov/DocumentCenter/View/93220/ElectionSummaryReportRPT",
  "https://results.enr.clarityelections.com/CA/Contra_Costa/127405/current_ver.txt",
@@ -14,16 +16,15 @@ for url in URLS:
   with urllib.request.urlopen(urllib.request.Request(url,headers=HEAD),timeout=15) as resp:
    body=resp.read(4_000_000)
    print('Status:',resp.status,'Content-Type:',resp.headers.get('Content-Type'),'bytes:',len(body),'magic:',repr(body[:170]),flush=True)
+  if b'ElectionSummaryReport' in body and b'%PDF-' not in body[:5]:
+   import re
+   for match in list(re.finditer(b'ElectionSummaryReport.{0,130}',body,re.I))[:18]:
+    print('PDF-LINK-FRAGMENT:',repr(body[max(0,match.start()-100):match.end()]),flush=True)
   if body.startswith(b'%PDF-'):
    from pypdf import PdfReader
    pdf=PdfReader(io.BytesIO(body))
    print('PDF pages:',len(pdf.pages),'metadata:',str(pdf.metadata)[:500],flush=True)
    texts=[page.extract_text() or '' for page in pdf.pages]
-   for i in (0,11,12,13,17,18,26):
-    if i<len(texts):
-     print('== PDF PAGE',i+1,'==',flush=True)
-     print(texts[i][:11000],flush=True)
-     print('== END PDF PAGE',i+1,'==',flush=True)
    for needle in ['MORAGA', 'ACALANES', 'FIRE']:
     matches=[]
     for i,t in enumerate(texts):
