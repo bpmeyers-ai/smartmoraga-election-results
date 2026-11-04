@@ -50,8 +50,8 @@ def parse_report_text(text):
     date=re.match(r'\s*(\d{1,2}/\d{1,2}/\d{4}\s+\d{1,2}:\d{2}:\d{2}\s+[AP]M)',text)
     if not date:raise ValueError('Official report timestamp missing')
     timestamp=dt.datetime.strptime(date.group(1),'%m/%d/%Y %I:%M:%S %p')
-    if timestamp.date()!=dt.date(2026,11,3):
-        raise ValueError('Wrong election report date: '+str(timestamp))
+    if not dt.date(2026,11,3)<=timestamp.date()<=dt.date(2027,1,31):
+        raise ValueError('Official report date outside 2026 election-counting period: '+str(timestamp))
     stamp=timestamp.replace(tzinfo=ZoneInfo('America/Los_Angeles')).isoformat()
     return {rid:_read_table(text,title,names) for rid,(title,names) in TARGETS.items()},stamp
 
