@@ -14,6 +14,8 @@ import re
 import sys
 import urllib.error
 import urllib.request
+import urllib.parse
+import html
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -28,11 +30,14 @@ RACES=[
  {'id':'measure-w','title':'Measure W','subtitle':'Acalanes Union High School District · Parcel tax','seats':1,'type':'measure', 'expected':{'yes','no'}},
  {'id':'mofd','title':'MOFD Division 3','subtitle':'Moraga-Orinda Fire District · Division 3','seats':1,'type':'candidate','expected':{'donnelly','cohn'}}]
 
-def get(url,timeout=18,max_bytes=8_000_000):
+def get(url,timeout=18,max_bytes=8_000_000,allow_html=False):
     req=urllib.request.Request(url,headers=HEADER)
     with urllib.request.urlopen(req,timeout=timeout) as response:
         content=response.read(max_bytes+1)
         if len(content)>max_bytes: raise ValueError('Source too large')
+        if response.status==202 and not content: raise ValueError('HTTP 202 empty body (Clarity bot protection)')
+        if not allow_html and content.lstrip()[:20].lower().startswith((b'<!doctype html',b'<html')):
+            raise ValueError('HTML received instead of election data')
         sample=content[:1024].lower()
         if b'javascript is disabled' in sample or (b'robot' in sample and b'javascript' in sample):
             raise ValueError('HTML bot-verification page returned instead of election data')
@@ -118,6 +123,24 @@ def extract_zip(blob):
 def parse_json(blob):
     doc=json.loads(blob)
     result={}
+    # Clarity's real sum.json schema, confirmed in browser by the website owner.
+    # Contests holds one entry per race; C=name, CH=candidate labels, V=votes.
+    if isinstance(doc,dict) and isinstance(doc.get('Contests'),list):
+        for contest in doc['Contests']:
+            if not isinstance(contest,dict):continue
+            rid=identify_contest(contest.get('C'))
+            if not rid:continue
+            labels,votes=contest.get('CH'),contest.get('V')
+            if not isinstance(labels,list) or not isinstance(votes,list) or len(labels)!=len(votes):
+                raise ValueError('Clarity CH/V mismatch for '+str(contest.get('C')))
+            rows={}
+            for name,count in zip(labels,votes):
+                if not isinstance(name,str) or name in rows:
+                    raise ValueError('Clarity candidate name invalid or duplicated')
+                rows[name]=safe_int(count)
+            if rid in result:raise ValueError('Duplicate Clarity contest '+rid)
+            result[rid]=rows
+        if result:return result
     def traverse(node,depth=0):
         if depth>9:return
         if isinstance(node,dict):
@@ -163,6 +186,84 @@ def load_clarity():
             return data
         except Exception as e:failures.append(f'{url}: {e}')
     raise RuntimeError('No complete verified data from Clarity:\n'+'\n'.join(failures))
+
+PDF_FALLBACK='https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-53.pdf'
+COUNTY_ELECTION='https://www.contracostavote.gov/election/november-3-2026-general-election/'
+
+def discover_pdf_urls():
+    # Read the county's *published* election page. Ignore commented-out
+    # future result links and stale files. This avoids guessing filenames.
+    urls=[]
+    try:
+        page=get(COUNTY_ELECTION,timeout=15,max_bytes=2_000_000,allow_html=True).decode('utf-8',errors='ignore')
+        page=re.sub(r'<!--.*?-->', '', page, flags=re.S)
+        for link in re.findall(r'href\s*=\s*["\x27]([^"\x27]+)["\x27]',page,re.I):
+            href=html.unescape(link)
+            if re.search(r'ElectionSummaryReportRPT(?:-\d+)?\.pdf(?:[?#].*)?
+    doc=json.loads(Path(path).read_text())
+    if doc.get('election')!='2026-11-03':raise ValueError('Wrong election')
+    mapping={r['id']:{c['name']:c['votes'] for c in r['choices']} for r in doc['races']}
+    return assemble(mapping,doc['source_url'],doc.get('reported_at'),doc.get('version'))
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument('--input-json',type=Path,help='Import already verified normalized data (optional manual fallback)')
+    ap.add_argument('--test-xml',type=Path,help='Use a local Clarity XML fixture for offline testing')
+    ap.add_argument('--dry-run',action='store_true',help='Validate and print without overwriting docs/data.json')
+    args=ap.parse_args()
+    try:
+        if args.input_json:data=validate_seed(args.input_json)
+        elif args.test_xml:data=assemble(parse_xml(args.test_xml.read_bytes()),'local-fixture')
+        else:data=load_preferred()
+        if args.dry_run:print(json.dumps(data,indent=2));return 0
+        previous=json.loads(OUT.read_text()) if OUT.exists() else {}
+        if previous.get('reported_at') and data.get('reported_at') and not previous.get('sample'):
+            if dt.datetime.fromisoformat(data['reported_at']) < dt.datetime.fromisoformat(previous['reported_at']):
+                raise ValueError('Older election report rejected; keeping newer published snapshot')
+        # A same-version recheck should not churn GitHub commits with fetched_at changes.
+        old_tallies={r['id']:[(c['name'],c['votes']) for c in r['choices']] for r in previous.get('races',[])}
+        new_tallies={r['id']:[(c['name'],c['votes']) for c in r['choices']] for r in data['races']}
+        if old_tallies==new_tallies and previous.get('reported_at')==data.get('reported_at') and not previous.get('sample') and previous.get('certified')==data['certified']:
+            print('No changed results; keeping existing file');return 0
+        if previous.get('reported_at') and not data.get('reported_at'):
+            # The new API response lacked an as-of timestamp. Do NOT reuse stale report time.
+            data['reported_at_text']='Clarity feed did not provide a verified as-of timestamp'
+        OUT.write_text(json.dumps(data,indent=2,ensure_ascii=False)+'\n')
+        print('Published updated verified totals to',OUT)
+        return 0
+    except Exception as e:
+        print('No publication; last verified results preserved. Reason:',e,file=sys.stderr)
+        return 1
+
+if __name__=='__main__':sys.exit(main())
+,href,re.I):
+                urls.append(urllib.parse.urljoin(COUNTY_ELECTION,href))
+    except Exception as e:
+        print('Election-results page unavailable; using known PDF fallback:',e,file=sys.stderr)
+    urls.append(PDF_FALLBACK)
+    def file_number(url):
+        match=re.search(r'-(\d+)\.pdf',url,re.I)
+        return int(match.group(1)) if match else -1
+    return sorted(set(u for u in urls if u.startswith('https://')),key=file_number,reverse=True)[:12]
+
+def load_county_pdf():
+    import pdf_extract
+    failures=[]
+    for url in discover_pdf_urls():
+        try:
+            blob=get(url,timeout=25,max_bytes=15_000_000)
+            votes,reported_at=pdf_extract.parse_report(blob)
+            result=assemble(votes,url,reported_at=reported_at)
+            print('Verified official county PDF:',url,'as of',reported_at,file=sys.stderr)
+            return result
+        except Exception as e:
+            failures.append(url+': '+str(e))
+    raise RuntimeError('No valid official PDF results: '+'; '.join(failures))
+
+def load_preferred():
+    try:return load_county_pdf()
+    except Exception as e:print('County PDF unavailable; trying Clarity:',e,file=sys.stderr)
+    return load_clarity()
 
 def validate_seed(path):
     doc=json.loads(Path(path).read_text())
