@@ -18,6 +18,7 @@ import urllib.parse
 import html
 import xml.etree.ElementTree as ET
 import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'docs'/'data.json'
@@ -191,35 +192,56 @@ PDF_FALLBACK="https://www.contracostavote.gov/wp-content/uploads/ElectionSummary
 COUNTY_ELECTION="https://www.contracostavote.gov/election/november-3-2026-general-election/"
 
 def discover_pdf_urls():
+    """Collect linked reports and probe later official numbered reports.
+
+    The county election page has sometimes linked an older report while newer
+    ElectionSummaryReportRPT-N.pdf files were already publicly available.
+    A file number is not proof of recency: the embedded report timestamp wins.
+    """
     urls=[]
     try:
         page=get(COUNTY_ELECTION,timeout=15,max_bytes=2_000_000,allow_html=True).decode("utf-8",errors="ignore")
         page=re.sub(r"<!--.*?-->","",page,flags=re.S)
-        for link in re.findall(r'href="([^"]+)',page,re.I):
+        for link in re.findall(r'href=["\\\']([^"\\\']+)',page,re.I):
             href=html.unescape(link)
-            if "ElectionSummaryReportRPT" in href and ".pdf" in href:
+            if "ElectionSummaryReportRPT" in href and ".pdf" in href.lower():
                 urls.append(urllib.parse.urljoin(COUNTY_ELECTION,href))
     except Exception as e:
         print("County results landing page unavailable:",e,file=sys.stderr)
     urls.append(PDF_FALLBACK)
-    def file_number(url):
-        match=re.search(r"-(\d+)\.pdf",url,re.I)
-        return int(match.group(1)) if match else -1
-    return sorted({url for url in urls if url.startswith("https://")},key=file_number,reverse=True)[:12]
+    # Also probe a bounded set of later official report filenames, rather
+    # than trusting the stale report link on the election landing page.
+    for n in range(65,101):
+        urls.append(f"https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-{n}.pdf")
+    return list(dict.fromkeys(u for u in urls if u.startswith("https://")))
 
 def load_county_pdf():
     import pdf_extract
+    urls=discover_pdf_urls()
     failures=[]
-    for url in discover_pdf_urls():
-        try:
-            content=get(url,timeout=25,max_bytes=15_000_000)
-            results,reported_at=pdf_extract.parse_report(content)
-            data=assemble(results,url,reported_at=reported_at)
-            print("Verified official PDF:",url,reported_at,file=sys.stderr)
-            return data
-        except Exception as e:
-            failures.append(url+": "+str(e))
-    raise RuntimeError("No valid official county PDF: "+"; ".join(failures))
+    candidates=[]
+    def check(url):
+        content=get(url,timeout=12,max_bytes=15_000_000)
+        results,reported_at=pdf_extract.parse_report(content)
+        if not reported_at:raise ValueError("Missing independently verified report timestamp")
+        data=assemble(results,url,reported_at=reported_at)
+        return data
+    # Parallel probes keep the scan practical even when many numbered reports
+    # are absent. Only publish a fully parsed report with the newest timestamp.
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        future_map={pool.submit(check,url):url for url in urls}
+        for future in as_completed(future_map):
+            url=future_map[future]
+            try:
+                data=future.result()
+                candidates.append(data)
+            except Exception as e:
+                failures.append(url+": "+str(e))
+    if not candidates:
+        raise RuntimeError("No valid official county PDF: "+"; ".join(failures[:8]))
+    newest=max(candidates,key=lambda d:dt.datetime.fromisoformat(d['reported_at']))
+    print("Verified newest official PDF:",newest['source_url'],newest['reported_at'],file=sys.stderr)
+    return newest
 
 def load_preferred():
     try:return load_county_pdf()
