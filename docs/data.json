@@ -2,10 +2,10 @@
   "election": "2026-11-03",
   "certified": false,
   "sample": false,
-  "reported_at": "2026-11-06T14:47:22-08:00",
+  "reported_at": "2026-11-10T15:12:20-08:00",
   "reported_at_text": null,
-  "fetched_at": "2026-11-06T23:21:59+00:00",
-  "source_url": "https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-64.pdf",
+  "fetched_at": "2026-11-11T00:44:12+00:00",
+  "source_url": "https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-65.pdf",
   "version": null,
   "races": [
     {
@@ -17,23 +17,23 @@
       "choices": [
         {
           "name": "Steven Woehleke",
-          "votes": 4260,
-          "percent": 34.05
+          "votes": 4597,
+          "percent": 33.97
         },
         {
           "name": "Kerry Hillis",
-          "votes": 3833,
-          "percent": 30.64
+          "votes": 4152,
+          "percent": 30.68
         },
         {
           "name": "Alexis I. Mapel",
-          "votes": 3467,
-          "percent": 27.71
+          "votes": 3746,
+          "percent": 27.68
         },
         {
           "name": "Bill Carman",
-          "votes": 951,
-          "percent": 7.6
+          "votes": 1039,
+          "percent": 7.68
         }
       ]
     },
@@ -46,13 +46,13 @@
       "choices": [
         {
           "name": "YES",
-          "votes": 36513,
-          "percent": 71.26
+          "votes": 41486,
+          "percent": 71.62
         },
         {
           "name": "NO",
-          "votes": 14726,
-          "percent": 28.74
+          "votes": 16438,
+          "percent": 28.38
         }
       ]
     },
@@ -65,13 +65,13 @@
       "choices": [
         {
           "name": "John Donnelly",
-          "votes": 1954,
-          "percent": 62.19
+          "votes": 2136,
+          "percent": 62.4
         },
         {
           "name": "Steve Cohn",
-          "votes": 1188,
-          "percent": 37.81
+          "votes": 1287,
+          "percent": 37.6
         }
       ]
     }
