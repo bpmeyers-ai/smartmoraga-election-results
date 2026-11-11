@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """SMARTMoraga election updater. Fail closed: never publish partially parsed votes.
 
-Uses only Python standard library. Designed for GitHub Actions or local use.
+Uses pypdf for official PDF extraction; otherwise Python standard library.
 """
 from __future__ import annotations
 import argparse
@@ -15,7 +15,7 @@ import sys
 import urllib.error
 import urllib.request
 import urllib.parse
-import html
+from html.parser import HTMLParser
 import xml.etree.ElementTree as ET
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -191,29 +191,50 @@ def load_clarity():
 PDF_FALLBACK="https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-53.pdf"
 COUNTY_ELECTION="https://www.contracostavote.gov/election/november-3-2026-general-election/"
 
-def discover_pdf_urls():
-    """Collect linked reports and probe later official numbered reports.
+COUNTY_RESULTS="https://www.contracostavote.gov/november-3-2026-election-results/"
 
-    The county election page has sometimes linked an older report while newer
-    ElectionSummaryReportRPT-N.pdf files were already publicly available.
-    A file number is not proof of recency: the embedded report timestamp wins.
+def official_pdf_url(url):
+    parsed=urllib.parse.urlsplit(url)
+    return (parsed.scheme=='https' and parsed.netloc=='www.contracostavote.gov'
+            and re.fullmatch(r'/wp-content/uploads/ElectionSummaryReportRPT(?:-\d+)?\.pdf',parsed.path,re.I))
+
+class ReportLinks(HTMLParser):
+    def __init__(self,base):
+        super().__init__()
+        self.base=base
+        self.urls=[]
+    def handle_starttag(self,tag,attrs):
+        if tag.lower()!='a':return
+        href=dict(attrs).get('href')
+        if href:
+            url=urllib.parse.urljoin(self.base,href)
+            if official_pdf_url(url):self.urls.append(url)
+
+def discover_pdf_urls():
+    """Read published links, ignoring comments, and retain last verified source.
+
+    Probe only four successors of the highest known number as a bounded
+    fallback for stale county HTML. Embedded timestamps determine recency.
     """
     urls=[]
-    try:
-        page=get(COUNTY_ELECTION,timeout=15,max_bytes=2_000_000,allow_html=True).decode("utf-8",errors="ignore")
-        page=re.sub(r"<!--.*?-->","",page,flags=re.S)
-        for link in re.findall(r'href=["\\\']([^"\\\']+)',page,re.I):
-            href=html.unescape(link)
-            if "ElectionSummaryReportRPT" in href and ".pdf" in href.lower():
-                urls.append(urllib.parse.urljoin(COUNTY_ELECTION,href))
-    except Exception as e:
-        print("County results landing page unavailable:",e,file=sys.stderr)
+    for page_url in (COUNTY_RESULTS,COUNTY_ELECTION):
+        try:
+            page=get(page_url,timeout=15,max_bytes=2_000_000,allow_html=True).decode('utf-8')
+            parser=ReportLinks(page_url)
+            parser.feed(page)
+            urls.extend(parser.urls)
+            print('County published PDF links:',page_url,parser.urls,file=sys.stderr)
+        except Exception as e:
+            print('County results page unavailable:',page_url,str(e),file=sys.stderr)
+    if OUT.exists():
+        previous=json.loads(OUT.read_text()).get('source_url','')
+        if official_pdf_url(previous):urls.append(previous)
     urls.append(PDF_FALLBACK)
-    # Also probe a bounded set of later official report filenames, rather
-    # than trusting the stale report link on the election landing page.
-    for n in range(65,101):
-        urls.append(f"https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-{n}.pdf")
-    return list(dict.fromkeys(u for u in urls if u.startswith("https://")))
+    numbers=[int(m[1]) for u in urls if (m:=re.search(r'RPT-(\d+)\.pdf',u,re.I))]
+    latest=max(numbers)
+    urls.extend(f'https://www.contracostavote.gov/wp-content/uploads/ElectionSummaryReportRPT-{n}.pdf'
+                for n in range(latest+1,latest+5))
+    return list(dict.fromkeys(urls))
 
 def load_county_pdf():
     import pdf_extract
@@ -237,6 +258,7 @@ def load_county_pdf():
                 candidates.append(data)
             except Exception as e:
                 failures.append(url+": "+str(e))
+                print("PDF rejected:",url,str(e),file=sys.stderr)
     if not candidates:
         raise RuntimeError("No valid official county PDF: "+"; ".join(failures[:8]))
     newest=max(candidates,key=lambda d:dt.datetime.fromisoformat(d['reported_at']))
